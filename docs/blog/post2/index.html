@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+  <head>
+  <meta charset="utf-8">
+<title>【仕事関連】Asset Allocation ModelをRで組んでみた。 - 東京の投資顧問会社で働く社会人が研究に没頭するブログ</title>
+<meta name="description" content="A theme by HTML5 UP, ported by Julio Pescador. Slimmed and enhanced by Patrick Collins. Multilingual by StatnMap. Powered by Hugo.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+  <meta name="generator" content="Hugo 0.55.4" />
+  
+<meta itemprop="name" content="【仕事関連】Asset Allocation ModelをRで組んでみた。">
+<meta itemprop="description" content="
+
+
+
+今回はいつもと違って金融関連の記事を書きました。というのも社内でワークショップがあり、アセットアロケーションモデルを構築する必要が生じたからです。休日は国会図書館に籠り、先行研究を漁った結果、分散共分散行列をGARCHやARMAで推定し、最小分散ポートフォリオの性能向上を目指している論文がいくつか存在することがわかりました。今回はこれをRで実践し、推定方法によってパフォーマンスがどれほど変化するのかを実証してみたいと思います。
+">
+
+
+<meta itemprop="datePublished" content="2019-02-17T00:00:00&#43;00:00" />
+<meta itemprop="dateModified" content="2019-02-17T00:00:00&#43;00:00" />
+<meta itemprop="wordCount" content="5024">
+
+
+
+<meta itemprop="keywords" content="" />
+
+  <meta property="og:title" content="【仕事関連】Asset Allocation ModelをRで組んでみた。" />
+<meta property="og:description" content="
+
+
+
+今回はいつもと違って金融関連の記事を書きました。というのも社内でワークショップがあり、アセットアロケーションモデルを構築する必要が生じたからです。休日は国会図書館に籠り、先行研究を漁った結果、分散共分散行列をGARCHやARMAで推定し、最小分散ポートフォリオの性能向上を目指している論文がいくつか存在することがわかりました。今回はこれをRで実践し、推定方法によってパフォーマンスがどれほど変化するのかを実証してみたいと思います。
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/blog/post2/" />
+<meta property="article:published_time" content="2019-02-17T00:00:00&#43;00:00"/>
+<meta property="article:modified_time" content="2019-02-17T00:00:00&#43;00:00"/>
+
+  <meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="【仕事関連】Asset Allocation ModelをRで組んでみた。"/>
+<meta name="twitter:description" content="
+
+
+
+今回はいつもと違って金融関連の記事を書きました。というのも社内でワークショップがあり、アセットアロケーションモデルを構築する必要が生じたからです。休日は国会図書館に籠り、先行研究を漁った結果、分散共分散行列をGARCHやARMAで推定し、最小分散ポートフォリオの性能向上を目指している論文がいくつか存在することがわかりました。今回はこれをRで実践し、推定方法によってパフォーマンスがどれほど変化するのかを実証してみたいと思います。
+"/>
+<meta name="twitter:site" content="@example"/>
+
+  
+
+  <link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.6/styles/tango.min.css">
+  
+    
+      <link rel="stylesheet" href="../../css/normalize.css">
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway:400,800,900|Source+Sans+Pro:400,700">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.1.0/css/flag-icon.min.css">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.8.6/css/academicons.min.css">
+      <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.10/css/all.css" integrity="sha384-+d0P83n9kaQMCwj8F4RJB66tzIwOKmrdb46+porD/OvrJ+37WqIM7UoBtwHO6Nlg" crossorigin="anonymous">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.3.5/jquery.fancybox.min.css" />
+      <link rel="stylesheet" href="../../css/main.min.css">
+      <link rel="stylesheet" href="../../css/add-on.css">
+    
+  
+  
+</head>
+
+  <body>
+    
+<header id="site-header">
+  <nav id="site-nav">
+    <h1 class="nav-title">
+      <a href="../../">
+        
+          
+            Blog
+          
+        
+      </a>
+    </h1>
+    <menu id="site-nav-menu" class="flyout-menu">
+      
+        <a href="../../" class="link"><i class="fas fa-home">&nbsp;</i>Home</a>
+      
+        <a href="../../about/" class="link"><i class="far fa-id-card">&nbsp;</i>About</a>
+      
+        <a href="../../blog/" class="link"><i class="far fa-newspaper">&nbsp;</i>Blog</a>
+      
+        <a href="../../categories/" class="link"><i class="fas fa-sitemap">&nbsp;</i>Categories</a>
+      
+        <a href="../../contact/" class="link"><i class="far fa-envelope">&nbsp;</i>Contact</a>
+      
+      <a href="#share-menu" class="share-toggle"><i class="fas fa-share-alt">&nbsp;</i>Share</a>
+      
+
+    </menu>
+    
+
+    <a href="#share-menu" class="share-toggle"><i class="fas fa-share-alt fa-2x">&nbsp;</i></a>
+    <a href="#lang-menu" class="lang-toggle" lang="en"><span class="flag-icon flag-icon-en" alt="en"></span></a>
+    <a href="#site-nav" class="nav-toggle"><i class="fas fa-bars fa-2x"></i></a>
+  </nav>
+  <menu id="lang-menu" class="flyout-menu">
+  <a href="#" lang="en" class="active"><span class="flag-icon flag-icon-en" alt="en"></span></a>
+  
+    
+      
+    
+      
+        <a href="../../fr" lang="fr" class="no-lang"><span class="flag-icon flag-icon-fr" alt="fr"></span></a>
+      
+    
+      
+        <a href="../../pl" lang="pl" class="no-lang"><span class="flag-icon flag-icon-pl" alt="pl"></span></a>
+      
+    
+  
+</menu>
+
+  
+    <menu id="share-menu" class="flyout-menu">
+      <h1>Share Post</h1>
+      
+
+
+
+  
+    <a href="//twitter.com/share?url=&amp;text=&amp" target="_blank" rel="noopener" class="share-btn twitter">
+        <i class="fab fa-twitter"></i><p>&nbsp;Twitter</p>
+      </a>
+  
+
+  
+      <a href="//www.facebook.com/sharer/sharer.php?u=" target="_blank" rel="noopener" class="share-btn facebook">
+        <i class="fab fa-facebook"></i><p>&nbsp;Facebook</p>
+        </a>
+  
+
+  
+    <a href="//reddit.com/submit?url=&amp;title=" target="_blank" rel="noopener" class="share-btn reddit">
+          <i class="fab fa-reddit-alien"></i><p>&nbsp;Reddit</p>
+        </a>
+  
+
+  
+        <a href="//www.linkedin.com/shareArticle?url=&amp;title=" target="_blank" rel="noopener" class="share-btn linkedin">
+            <i class="fab fa-linkedin"></i><p>&nbsp;LinkedIn</p>
+          </a>
+  
+
+  
+        <a href="//www.stumbleupon.com/submit?url=&amp;title=" target="_blank" rel="noopener" class="share-btn stumbleupon">
+          <i class="fab fa-stumbleupon"></i><p>&nbsp;StumbleUpon</p>
+        </a>
+  
+
+  
+        <a href="//www.pinterest.com/pin/create/button/?url=&amp;description=" target="_blank" rel="noopener" class="share-btn pinterest">
+          <i class="fab fa-pinterest-p"></i><p>&nbsp;Pinterest</p>
+        </a>
+  
+
+  
+        <a href="mailto:?subject=Check out this post by &amp;body=" target="_blank" class="share-btn email">
+          <i class="fas fa-envelope"></i><p>&nbsp;Email</p>
+        </a>
+  
+
+
+    </menu>
+  
+</header>
+
+    <div id="wrapper">
+      <section id="site-intro">
+  <a href="../../"><img src="../../img/main/logo.jpg" class="circle" width="" alt="Hugo Future Imperfect Slim" /></a>
+  <header>
+    <h1>東京の資産運用会社で働く社会人が研究に没頭するブログ</h1>
+  </header>
+  <main>
+    <p>Another fine, responsive site template by <a href='http://html5up.net'>HTML5 UP</a>.</p>
+  </main>
+  
+    <footer>
+      <ul class="social-icons">
+        
+
+        <li><a href="//github.com/pacollins/hugo-future-imperfect-slim" target="_blank" rel="noopener" title="GitHub" class="fab fa-github"></a></li>
+
+
+
+
+
+
+<li><a href="//flickr.com/photos/example" target="_blank" rel="noopener" title="Flickr" class="fab fa-flickr"></a></li>
+
+
+
+
+<li><a href="//linkedin.com/in/example" target="_blank" rel="noopener" title="LinkedIn" class="fab fa-linkedin"></a></li>
+<li><a href="//linkedin.com/company/examplebusiness" target="_blank" rel="noopener" title="LinkedIn Company" class="fab fa-linkedin"></a></li>
+
+
+
+<li><a href="//facebook.com/example" target="_blank" rel="noopener" title="Facebook" class="fab fa-facebook"></a></li>
+<li><a href="//reddit.com/user/example" target="_blank" rel="noopener" title="Reddit" class="fab fa-reddit"></a></li>
+
+
+
+
+
+
+
+<li><a href="//instagram.com/example" target="_blank" rel="noopener" title="Instagram" class="fab fa-instagram"></a></li>
+
+<li><a href="//twitter.com/example" target="_blank" rel="noopener" title="Twitter" class="fab fa-twitter"></a></li>
+
+
+<li><a href="//pinterest.com/example" target="_blank" rel="noopener" title="Pinterest" class="fab fa-pinterest-p"></a></li>
+<li><a href="//telegram.me/example" target="_blank" rel="noopener" title="telegram" class="fab fa-telegram"></a></li>
+
+
+
+<li><a href="//researchgate.net/profile/example" target="_blank" rel="noopener" title="Research Gate"><i class="ai ai-researchgate"></i></a></li>
+<li><a href="mailto:example" target="_blank" title="Email" class="far fa-envelope"></a></li>
+
+      </ul>
+    </footer>
+  
+</section>
+
+      <main id="site-main">
+        <article class="post">
+            
+            <header>
+  <div class="title">
+    
+      <h1><a href="../../blog/post2/">【仕事関連】Asset Allocation ModelをRで組んでみた。</a></h1>
+      
+    
+    
+  </div>
+</header>
+
+            <div id="content">
+                <p>おはこんばんにちは。勤め先で、アセットアロケーションに関するワークショップに参加したので、この分野は完全なる専門外ですがシミュレーションをしてみたいと思います。今回は、最小分散ポートフォリオ(minimum variance portfolio)を基本ポートフォリオとしたうえで、その分散共分散行列（予測値）をどのように推計するのかという点について先行研究を参考にエクササイズしていきたいと思います。先行研究は以下の論文です（オペレーションリサーチのジャーナルでした）。</p>
+<p>[<a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2947643:embed:cite" class="uri">https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2947643:embed:cite</a>]</p>
+<div id="section" class="section level3">
+<h3>最小分散ポートフォリオ</h3>
+<p>最小分散ポートフォリオの詳しい説明はここでは割愛しますが、要は各資産（内株、外株、内債、外債、オルタナ）のリターンの平均と分散を計算し、それらを縦軸平均値、横軸分散の二次平面にプロットしたうえで、投資可能範囲を計算し、その集合の中で最も分散が小さくなるポートフォリオの事らしいです（下図参照）。</p>
+<div class="figure">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Minimum_variance_flontier_of_MPT.svg/1280px-Minimum_variance_flontier_of_MPT.svg.png" alt="minimum variance portfolio" />
+<p class="caption">minimum variance portfolio</p>
+</div>
+<p>先行研究のCarroll et. al. (2017)では、「 this paper focusses on minimum-variance portfolios requiring only estimates of asset covariance, hence bypassing the well-known problem of estimation error in forecasting expected asset returns. 」と記載されており、現状でも期待リターンの推計は難しく、それを必要としない最小分散ポートフォリオは有益で実践的な手法であるといえます。最小分散ポートフォリオの目的関数は、その名の通り「分散を最小化すること」です。今、各資産のリターンを集めたベクトルを[tex:r]、各資産の保有ウェイトを<span class="math inline">\(\theta\)</span>、ポートフォリオリターンを<span class="math inline">\(R_{p}\)</span>で表すことにすると、ポートフォリオ全体の分散<span class="math inline">\(var(R_{p})\)</span>は以下のように記述できます。</p>
+<p><span class="math display">\[
+var(R_{p}) = var(r^{T}\theta) = E( (r^{T}\theta)(r^{T}\theta)^{T}) = \theta^{T}\Sigma\theta
+\]</span></p>
+<p>ここで<span class="math inline">\(Sigma\)</span>は<span class="math inline">\(r\)</span>の分散共分散行列です。よって、最小化問題は以下になります。</p>
+<p><span class="math display">\[
+\min_{\theta}(\theta^{T}\Sigma\theta) \\
+s.t 1^{T}\theta = 1
+\]</span></p>
+<p>ここでは、フルインベストメントを制約条件に加えています。ラグランジュ未定乗数法を用いてこの問題を解いてみましょう。ラグランジュ関数<span class="math inline">\(L\)</span>は以下のようになります。</p>
+<p><span class="math display">\[
+L = \theta^{T}\Sigma\theta + \lambda(1^{T}\theta - 1)
+\]</span></p>
+<p>1階の条件は、</p>
+<p><span class="math display">\[
+\displaystyle\frac{\partial L}{\partial \theta} = 2\Sigma\theta + 1\lambda = 0 \\
+\displaystyle \frac{\partial L}{\partial \lambda} = 1^{T} \theta = 1
+\]</span></p>
+<p>1本目の式を<span class="math inline">\(\theta\)</span>について解くと、</p>
+<p><span class="math display">\[
+\theta = \Sigma^{-1}1\lambda^{*}
+\]</span></p>
+<p>となります。ここで、<span class="math inline">\(\lambda^{*}=-1/2\lambda\)</span>です。これを2本目の式に代入し、<span class="math inline">\(\lambda^{*}\)</span>について解きます。</p>
+<p><span class="math display">\[
+1^{T}\Sigma1\lambda^{*} = 1 \\
+\displaystyle \lambda^{*} = \frac{1}{1^{T}\Sigma^{-1}1}
+\]</span></p>
+<p><span class="math inline">\(\theta = \Sigma^{-1}1\lambda^{*}\)</span>だったので、<span class="math inline">\(\lambda^{*}\)</span>を消去すると、</p>
+<p><span class="math display">\[
+\displaystyle \theta_{gmv} = \frac{\Sigma^{-1}1}{1^{T}\Sigma^{-1}1}
+\]</span></p>
+<p>となり、最適なウェイトを求めることができました。とりあえず、これをRで実装しておきます。</p>
+<pre class="sourceCode r"><code class="sourceCode r">gmv &lt;-<span class="st"> </span><span class="cf">function</span>(r_dat,r_cov){
+  <span class="kw">library</span>(MASS)
+  i &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="dv">1</span>,<span class="kw">NCOL</span>(r_dat),<span class="dv">1</span>)
+  r_weight &lt;-<span class="st"> </span>(<span class="kw">ginv</span>(r_cov)<span class="op">%*%</span>i)<span class="op">/</span><span class="kw">as.numeric</span>(<span class="kw">t</span>(i)<span class="op">%*%</span><span class="kw">ginv</span>(r_cov)<span class="op">%*%</span>i)
+  wr_dat &lt;-<span class="st"> </span>r_dat<span class="op">*</span><span class="kw">as.numeric</span>(r_weight)
+  portfolio &lt;-<span class="st"> </span><span class="kw">apply</span>(wr_dat,<span class="dv">1</span>,sum)
+  pr_dat &lt;-<span class="st"> </span><span class="kw">data.frame</span>(wr_dat,portfolio)
+  sd &lt;-<span class="st"> </span><span class="kw">sd</span>(portfolio)
+  result &lt;-<span class="st"> </span><span class="kw">list</span>(r_weight,pr_dat,sd)
+  <span class="kw">names</span>(result) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;weight&quot;</span>,<span class="st">&quot;return&quot;</span>,<span class="st">&quot;portfolio risk&quot;</span>) 
+  <span class="kw">return</span>(result)
+}
+
+nlgmv &lt;-<span class="st"> </span><span class="cf">function</span>(r_dat,r_cov){
+  qp.out &lt;-<span class="st"> </span><span class="kw">solve.QP</span>(<span class="dt">Dmat=</span>r_cov,<span class="dt">dvec=</span><span class="kw">rep</span>(<span class="dv">0</span>,<span class="kw">NCOL</span>(r_dat)),<span class="dt">Amat=</span><span class="kw">cbind</span>(<span class="kw">rep</span>(<span class="dv">1</span>,<span class="kw">NCOL</span>(r_dat)),<span class="kw">diag</span>(<span class="kw">NCOL</span>(r_dat))),
+           <span class="dt">bvec=</span><span class="kw">c</span>(<span class="dv">1</span>,<span class="kw">rep</span>(<span class="dv">0</span>,<span class="kw">NCOL</span>(r_dat))),<span class="dt">meq=</span><span class="dv">1</span>)
+  r_weight &lt;-<span class="st"> </span>qp.out<span class="op">$</span>solution
+  wr_dat &lt;-<span class="st"> </span>r_dat<span class="op">*</span>r_weight
+  portfolio &lt;-<span class="st"> </span><span class="kw">apply</span>(wr_dat,<span class="dv">1</span>,sum)
+  pr_dat &lt;-<span class="st"> </span><span class="kw">data.frame</span>(wr_dat,portfolio)
+  sd &lt;-<span class="st"> </span><span class="kw">sd</span>(portfolio)
+  result &lt;-<span class="st"> </span><span class="kw">list</span>(r_weight,pr_dat,sd)
+  <span class="kw">names</span>(result) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;weight&quot;</span>,<span class="st">&quot;return&quot;</span>,<span class="st">&quot;portfolio risk&quot;</span>)
+  <span class="kw">return</span>(result)
+}</code></pre>
+<p>入力は各資産のリターンと分散共分散行列になっています。出力はウェイト、リターン、リスクです。nlgmvは最小分散ポートフォリオの空売り制約バージョンです。解析的な解は得られないので、数値的に買いを求めています。</p>
+</div>
+<div id="section-1" class="section level3">
+<h3>分散共分散行列をどのように求めるか</h3>
+<p>最小分散ポートフォリオの計算式は求めることができました。次は、その入力である分散共分散行列をどうやって求めるのかについて分析したいと思います。一番原始的な方法はその時点以前に利用可能なリターンデータを標本として分散共分散行列を求め、その値を固定して最小分散ポートフォリオを求めるというヒストリカルなアプローチかと思います（つまりウェイトも固定）。ただ、これはあくまで過去の平均値を将来の予想値に使用するため、いろいろ問題が出てくるかと思います。専門外の私が思いつくものとしては、前日ある資産Aのリターンが大きく下落したという場面で明日もこの資産の分散は大きくなることが予想されるにも関わらず、平均値を使用するため昨日の効果が薄められてしまうことでしょうか。それに、ウェイトを最初から変更しないというのも時間がたつにつれ、最適点から離れていく気がします。ただ、ではどう推計するのかついてはこの分野でも試行錯誤が行われているようです。Carroll et. al. (2017)でも「The estimation of covariance matrices for portfolios with a large number of assets still remains a fundamental challenge in portfolio optimization.」と述べられていました。この論文では以下のようなモデルを用いて推計が行われています。いずれも、分散共分散行列を時変としているところに特徴があります。</p>
+<ol style="list-style-type: decimal">
+<li>Constant conditional correlation (CCC) model</li>
+</ol>
+<p>元論文はこちら。</p>
+<p>[<a href="https://www.jstor.org/stable/2109358?read-now=1&amp;seq=3#page_scan_tab_contents:title" class="uri">https://www.jstor.org/stable/2109358?read-now=1&amp;seq=3#page_scan_tab_contents:title</a>]</p>
+<p>まず、分散共分散行列と相関行列の関係性から、<span class="math inline">\(\Sigma_{t} = D_{t}R_{t}D_{t}\)</span>となります。ここで、<span class="math inline">\(R_{t}\)</span>は相関行列、<span class="math inline">\(D_{t}\)</span>は<span class="math inline">\(diag(\sigma_{1,t},...,\sigma_{N,t})\)</span>で各資産<span class="math inline">\(tt\)</span>期の標準偏差<span class="math inline">\(\sigma_{i,t}\)</span>を対角成分に並べた行列です。ここから、<span class="math inline">\(D_{t}\)</span>と<span class="math inline">\(R_{t}\)</span>を分けて推計していきます。まず、<span class="math inline">\(D_{t}\)</span>ですが、こちらは以下のような多変量GARCHモデル(1,1)で推計します。</p>
+<p><span class="math display">\[
+r_{t} = \mu + u_{t} \\
+u_{t} = \sigma_{t}\epsilon \\
+\sigma_{t}^{2} = \alpha_{0} + \alpha_{1}u_{t-1}^{2} + \alpha_{2}\sigma_{t-1}^{2} \\
+\epsilon_{t} = NID(0,1) \\
+E(u_{t}|u_{t-1}) = 0
+\]</span></p>
+<p>ここで、<span class="math inline">\(\mu\)</span>はリターンの標本平均です。<span class="math inline">\(\alpha_{i}\)</span>は推定すべきパラメータ。<span class="math inline">\(D_{t}\)</span>をGARCHで推計しているので、リターンの分布が正規分布より裾野の厚い分布に従い、またリターンの変化は一定ではなく前日の分散に依存する関係をモデル化しているといえるのではないでしょうか。とりあえずこれで<span class="math inline">\(D_{t}\)</span>の推計はできたということにします。次に<span class="math inline">\(R_{t}\)</span>の推計ですが、このモデルではリターンを標本として求めるヒストリカルなアプローチを取ります。つまり、<span class="math inline">\(R_{t}\)</span>は定数です。よって、リターン変動の大きさは時間によって変化するが、各資産の相対的な関係性は不変であるという仮定を置いていることになります。</p>
+<ol start="2" style="list-style-type: decimal">
+<li>Dynamic Conditional Correlation (DCC) model
+元論文はこちら。</li>
+</ol>
+<p>[<a href="http://www.cass.city.ac.uk/__data/assets/pdf_file/0003/78960/Week7Engle_2002.pdf" class="uri">http://www.cass.city.ac.uk/__data/assets/pdf_file/0003/78960/Week7Engle_2002.pdf</a>]</p>
+<p>こちらのモデルでは、<span class="math inline">\(D_{t}\)</span>を求めるところまでは①と同じですが、[<span class="math inline">\(R_{t}\)</span>の求め方が異なっており、ARMA(1,1)を用いて推計します。相関行列はやはり定数ではないということで、<span class="math inline">\(tex:t\)</span>期までに利用可能なリターンを用いて推計をかけようということになっています。このモデルの相関行列<span class="math inline">\(R_{t}\)</span>は、</p>
+<p><span class="math display">\[
+R_{t} = diag(Q_{t})^{-1/2}Q_{t}diag(Q_{t})^{-1/2}
+\]</span></p>
+<p>です。ここで、<span class="math inline">\(Q_{t}\)</span>は<span class="math inline">\(t\)</span>期での条件付分散共分散行列で以下のように定式化されます。</p>
+<p><span class="math display">\[
+Q_{t} = \bar{Q}(1-a-b) + adiag(Q_{t-1})^{1/2}\epsilon_{i,t-1}\epsilon_{i,t-1}diag(Q_{t-1})^{1/2} + bQ_{t-1}
+\]</span></p>
+<p>ここで、<span class="math inline">\(\bar{Q}\)</span>はヒストリカルな方法で計算した分散共分散行列であり、<span class="math inline">\(a,b\)</span>はパラメータです。この方法では、先ほどとは異なり、リターン変動の大きさが時間によって変化するだけでなく、各資産の相対的な関係性も通時的に変化していくという仮定を置いていることになります。金融危機時には全資産のリターンが下落し、各資産の相関が正になる事象も観測されていることから、この定式化は魅力的であるということができるのではないでしょうか。</p>
+<ol start="3" style="list-style-type: decimal">
+<li>Dynamic Equicorrelation (DECO) model
+元論文はこちら</li>
+</ol>
+<p>[<a href="https://faculty.chicagobooth.edu/bryan.kelly/research/pdf/deco.pdf" class="uri">https://faculty.chicagobooth.edu/bryan.kelly/research/pdf/deco.pdf</a>]</p>
+<p>この論文はまだきっちり読めていないのですが、相関行列[tex:R_{t}]の定義から</p>
+<p><span class="math display">\[
+R_{t} = (1-\rho_{t})I_{N} + \rho_{t}1
+\]</span></p>
+<p>となるようです。ここで、<span class="math inline">\(\rho_{t}\)</span>はスカラーでequicorrelationの程度を表す係数です。equicorrelationとは平均的なペアワイズ相関の事であると理解しています。つまりは欠損値がなければ普通の相関と変わりないんじゃないかと。ただ、資産が増えればそのような問題にも対処する必要があるのでその点ではよい推定量のようです。<span class="math inline">\(\rho_{t}\)</span>は以下のように求めることができます。</p>
+<p><span class="math display">\[
+\displaystyle \rho_{t} = \frac{1}{N(N-1)}(\iota^{T}R_{t}^{DCC}\iota - N) = \frac{2}{N(N-1)}\sum_{i&gt;j}\frac{q_{ij,t}}{\sqrt{q_{ii,t} q_{jj,t}}}
+\]</span></p>
+<p>ここで、<span class="math inline">\(\iota\)</span>はN×1ベクトルで要素は全て1です。また、<span class="math inline">\(q_{ij,t}\)</span>は<span class="math inline">\(Q_{t}\)</span>のi,j要素です。</p>
+<p>さて、分散共分散行列のモデル化ができたところで、ここまでをRで実装しておきます。</p>
+<pre class="sourceCode r"><code class="sourceCode r">carroll &lt;-<span class="st"> </span><span class="cf">function</span>(r_dat,FLG){
+  
+  <span class="kw">library</span>(rmgarch)
+  
+  <span class="cf">if</span>(FLG <span class="op">==</span><span class="st"> &quot;benchmark&quot;</span>){
+    H &lt;-<span class="st"> </span><span class="kw">cov</span>(r_dat)
+  }<span class="cf">else</span>{
+    <span class="co">#1. define variables</span>
+    N &lt;-<span class="st"> </span><span class="kw">NCOL</span>(r_dat) <span class="co"># the number of assets</span>
+    
+    <span class="co">#2. estimate covariance matrix</span>
+    basic_garch =<span class="st"> </span><span class="kw">ugarchspec</span>(<span class="dt">mean.model =</span> <span class="kw">list</span>(<span class="dt">armaOrder =</span> <span class="kw">c</span>(<span class="dv">0</span>, <span class="dv">0</span>),<span class="dt">include.mean=</span><span class="ot">TRUE</span>), <span class="dt">variance.model =</span> <span class="kw">list</span>(<span class="dt">garchOrder =</span> <span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">1</span>), <span class="dt">model =</span> <span class="st">&#39;sGARCH&#39;</span>), <span class="dt">distribution.model =</span> <span class="st">&#39;norm&#39;</span>)
+    multi_garch =<span class="st"> </span><span class="kw">multispec</span>(<span class="kw">replicate</span>(N, basic_garch))
+    dcc_set =<span class="st"> </span><span class="kw">dccspec</span>(<span class="dt">uspec =</span> multi_garch, <span class="dt">dccOrder =</span> <span class="kw">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="dt">distribution =</span> <span class="st">&quot;mvnorm&quot;</span>,<span class="dt">model =</span> <span class="st">&quot;DCC&quot;</span>)
+    fit_dcc_garch =<span class="st"> </span><span class="kw">dccfit</span>(dcc_set, <span class="dt">data =</span> r_dat, <span class="dt">fit.control =</span> <span class="kw">list</span>(<span class="dt">eval.se =</span> <span class="ot">TRUE</span>))
+    forecast_dcc_garch &lt;-<span class="st"> </span><span class="kw">dccforecast</span>(fit_dcc_garch)
+    <span class="cf">if</span> (FLG <span class="op">==</span><span class="st"> &quot;CCC&quot;</span>){
+      <span class="co">#Constant conditional correlation (CCC) model</span>
+      D &lt;-<span class="st"> </span><span class="kw">sigma</span>(forecast_dcc_garch)
+      R_ccc &lt;-<span class="st"> </span><span class="kw">cor</span>(r_dat)
+      H &lt;-<span class="st"> </span><span class="kw">diag</span>(D[,,<span class="dv">1</span>])<span class="op">%*%</span>R_ccc<span class="op">%*%</span><span class="kw">diag</span>(D[,,<span class="dv">1</span>])
+      <span class="kw">colnames</span>(H) &lt;-<span class="st"> </span><span class="kw">colnames</span>(r_dat)
+      <span class="kw">rownames</span>(H) &lt;-<span class="st"> </span><span class="kw">colnames</span>(r_dat)
+    }
+    <span class="cf">else</span>{
+      <span class="co">#Dynamic Conditional Correlation (DCC) model</span>
+      H &lt;-<span class="st"> </span><span class="kw">as.matrix</span>(<span class="kw">rcov</span>(forecast_dcc_garch)[[<span class="dv">1</span>]][,,<span class="dv">1</span>])
+      <span class="cf">if</span> (FLG <span class="op">==</span><span class="st"> &quot;DECO&quot;</span>){
+        <span class="co">#Dynamic Equicorrelation (DECO) model</span>
+        one &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="dv">1</span>,N,N)
+        iota &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="dv">1</span>,N)
+        Q_dcc &lt;-<span class="st"> </span><span class="kw">rcor</span>(forecast_dcc_garch,<span class="dt">type=</span><span class="st">&quot;Q&quot;</span>)[[<span class="dv">1</span>]][,,<span class="dv">1</span>]
+        rho &lt;-<span class="st"> </span><span class="kw">as.vector</span>((N<span class="op">*</span>(N<span class="dv">-1</span>))<span class="op">^</span>(<span class="op">-</span><span class="dv">1</span>)<span class="op">*</span>(<span class="kw">t</span>(iota)<span class="op">%*%</span>Q_dcc<span class="op">%*%</span>iota<span class="op">-</span>N))
+        D &lt;-<span class="st"> </span><span class="kw">sigma</span>(forecast_dcc_garch)
+        R_deco &lt;-<span class="st"> </span>(<span class="dv">1</span><span class="op">-</span>rho)<span class="op">*</span><span class="kw">diag</span>(<span class="dv">1</span>,N,N) <span class="op">+</span><span class="st"> </span>rho<span class="op">*</span>one
+        H &lt;-<span class="st"> </span><span class="kw">diag</span>(D[,,<span class="dv">1</span>])<span class="op">%*%</span>R_deco<span class="op">%*%</span><span class="kw">diag</span>(D[,,<span class="dv">1</span>])
+        <span class="kw">colnames</span>(H) &lt;-<span class="st"> </span><span class="kw">colnames</span>(r_dat)
+        <span class="kw">rownames</span>(H) &lt;-<span class="st"> </span><span class="kw">colnames</span>(r_dat)
+      }
+    }
+  }
+  <span class="kw">return</span>(H)
+}</code></pre>
+<p>本来であれば、パッケージを使用するべきではないのですが、今日はエクササイズなので推計結果だけを追い求めたいと思います。GARCHについては再来週ぐらいに記事を書く予定です。
+これで準備ができました。この関数にリターンデータを入れて、分散共分散行列を計算し、それを用いて最小分散ポートフォリオを計算することができるようになりました。</p>
+</div>
+<div id="section-2" class="section level3">
+<h3>テスト用データの収集</h3>
+<p>データは以下の記事を参考にしました。</p>
+<p>[<a href="https://www.r-bloggers.com/introduction-to-asset-allocation/:embed:cite" class="uri">https://www.r-bloggers.com/introduction-to-asset-allocation/:embed:cite</a>]</p>
+<p>使用したのは、以下のインデックスに連動するETF(iShares)の基準価額データです。</p>
+<p>①S&amp;P500
+②NASDAQ100
+③MSCI Emerging Markets
+④Russell 2000
+⑤MSCI EAFE
+⑥US 20 Year Treasury(the Barclays Capital 20+ Year Treasury Index)
+⑦U.S. Real Estate(the Dow Jones US Real Estate Index)
+⑧gold bullion market</p>
+<p>まず、データ集めです。</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(quantmod)
+
+<span class="co">#**************************</span>
+<span class="co"># ★8 ASSETS SIMULATION</span>
+<span class="co"># SPY - S&amp;P 500 </span>
+<span class="co"># QQQ - Nasdaq 100</span>
+<span class="co"># EEM - Emerging Markets</span>
+<span class="co"># IWM - Russell 2000</span>
+<span class="co"># EFA - EAFE</span>
+<span class="co"># TLT - 20 Year Treasury</span>
+<span class="co"># IYR - U.S. Real Estate</span>
+<span class="co"># GLD - Gold</span>
+<span class="co">#**************************</span>
+
+<span class="co"># load historical prices from Yahoo Finance</span>
+symbol.names =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;S&amp;P 500&quot;</span>,<span class="st">&quot;Nasdaq 100&quot;</span>,<span class="st">&quot;Emerging Markets&quot;</span>,<span class="st">&quot;Russell 2000&quot;</span>,<span class="st">&quot;EAFE&quot;</span>,<span class="st">&quot;20 Year Treasury&quot;</span>,<span class="st">&quot;U.S. Real Estate&quot;</span>,<span class="st">&quot;Gold&quot;</span>)
+symbols =<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;SPY&quot;</span>,<span class="st">&quot;QQQ&quot;</span>,<span class="st">&quot;EEM&quot;</span>,<span class="st">&quot;IWM&quot;</span>,<span class="st">&quot;EFA&quot;</span>,<span class="st">&quot;TLT&quot;</span>,<span class="st">&quot;IYR&quot;</span>,<span class="st">&quot;GLD&quot;</span>)
+<span class="kw">getSymbols</span>(symbols, <span class="dt">from =</span> <span class="st">&#39;1980-01-01&#39;</span>, <span class="dt">auto.assign =</span> <span class="ot">TRUE</span>)
+
+<span class="co">#gn dates for all symbols &amp; convert to monthly</span>
+hist.prices =<span class="st"> </span><span class="kw">merge</span>(SPY,QQQ,EEM,IWM,EFA,TLT,IYR,GLD)
+month.ends =<span class="st"> </span><span class="kw">endpoints</span>(hist.prices, <span class="st">&#39;day&#39;</span>)
+hist.prices =<span class="st"> </span><span class="kw">Cl</span>(hist.prices)[month.ends, ]
+<span class="kw">colnames</span>(hist.prices) =<span class="st"> </span>symbols
+
+<span class="co"># remove any missing data</span>
+hist.prices =<span class="st"> </span><span class="kw">na.omit</span>(hist.prices[<span class="st">&#39;1995::&#39;</span>])
+
+<span class="co"># compute simple returns</span>
+hist.returns =<span class="st"> </span><span class="kw">na.omit</span>( <span class="kw">ROC</span>(hist.prices, <span class="dt">type =</span> <span class="st">&#39;discrete&#39;</span>) )
+
+<span class="co"># compute historical returns, risk, and correlation</span>
+ia =<span class="st"> </span><span class="kw">list</span>()
+ia<span class="op">$</span>expected.return =<span class="st"> </span><span class="kw">apply</span>(hist.returns, <span class="dv">2</span>, mean, <span class="dt">na.rm =</span> T)
+ia<span class="op">$</span>risk =<span class="st"> </span><span class="kw">apply</span>(hist.returns, <span class="dv">2</span>, sd, <span class="dt">na.rm =</span> T)
+ia<span class="op">$</span>correlation =<span class="st"> </span><span class="kw">cor</span>(hist.returns, <span class="dt">use =</span> <span class="st">&#39;complete.obs&#39;</span>, <span class="dt">method =</span> <span class="st">&#39;pearson&#39;</span>)
+
+ia<span class="op">$</span>symbols =<span class="st"> </span>symbols
+ia<span class="op">$</span>symbol.names =<span class="st"> </span>symbol.names
+ia<span class="op">$</span>n =<span class="st"> </span><span class="kw">length</span>(symbols)
+ia<span class="op">$</span>hist.returns =<span class="st"> </span>hist.returns
+
+<span class="co"># convert to annual, year = 12 months</span>
+annual.factor =<span class="st"> </span><span class="dv">12</span>
+ia<span class="op">$</span>expected.return =<span class="st"> </span>annual.factor <span class="op">*</span><span class="st"> </span>ia<span class="op">$</span>expected.return
+ia<span class="op">$</span>risk =<span class="st"> </span><span class="kw">sqrt</span>(annual.factor) <span class="op">*</span><span class="st"> </span>ia<span class="op">$</span>risk
+
+<span class="kw">rm</span>(SPY,QQQ,EEM,IWM,EFA,TLT,IYR,GLD)</code></pre>
+<p>リターンをプロットするとこんな感じです。</p>
+<pre class="sourceCode r"><code class="sourceCode r">PerformanceAnalytics<span class="op">::</span><span class="kw">charts.PerformanceSummary</span>(hist.returns, <span class="dt">main =</span> <span class="st">&quot;パフォーマンスサマリー&quot;</span>)</code></pre>
+<p><img src="../../blog/post2_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>次に、バックテストのコーディングを行います。一気にコードを公開します。</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># BACK </span><span class="al">TEST</span>
+backtest &lt;-<span class="st"> </span><span class="cf">function</span>(r_dat,FLG,start_date,span,learning_term,port){
+  <span class="co">#-----------------------------------------</span>
+  <span class="co"># BACKTEST</span>
+  <span class="co"># r_dat - return data(xts object) </span>
+  <span class="co"># FLG - flag(CCC,DCC,DECO)</span>
+  <span class="co"># start_date - start date for backtest</span>
+  <span class="co"># span - rebalance frequency</span>
+  <span class="co"># learning_term - learning term (days)</span>
+  <span class="co"># port - method of portfolio optimization</span>
+  <span class="co">#-----------------------------------------</span>
+  
+  <span class="kw">library</span>(stringi)
+
+  initial_dat &lt;-<span class="st"> </span>r_dat[<span class="kw">stri_c</span>(<span class="kw">as.Date</span>(start_date)<span class="op">-</span>learning_term,<span class="st">&quot;::&quot;</span>,<span class="kw">as.Date</span>(start_date))]
+  <span class="cf">for</span> (i <span class="cf">in</span> <span class="kw">NROW</span>(initial_dat)<span class="op">:</span><span class="kw">NROW</span>(r_dat)) {
+    <span class="cf">if</span> (i <span class="op">==</span><span class="st"> </span><span class="kw">NROW</span>(initial_dat)){
+      H &lt;-<span class="st"> </span><span class="kw">carroll</span>(initial_dat[<span class="dv">1</span><span class="op">:</span>(<span class="kw">NROW</span>(initial_dat)<span class="op">-</span><span class="dv">1</span>),],FLG)
+      <span class="cf">if</span> (port <span class="op">==</span><span class="st"> &quot;nlgmv&quot;</span>){
+        result &lt;-<span class="st"> </span><span class="kw">nlgmv</span>(initial_dat,H)
+      }<span class="cf">else</span> <span class="cf">if</span> (port <span class="op">==</span><span class="st"> &quot;risk parity&quot;</span>){
+        result &lt;-<span class="st"> </span><span class="kw">risk_parity</span>(initial_dat,H)
+      }
+      weight &lt;-<span class="st"> </span><span class="kw">t</span>(result<span class="op">$</span>weight)
+      <span class="kw">colnames</span>(weight) &lt;-<span class="st"> </span><span class="kw">colnames</span>(initial_dat)
+      p_return &lt;-<span class="st"> </span>initial_dat[<span class="kw">NROW</span>(initial_dat),]<span class="op">*</span>result<span class="op">$</span>weight
+    } <span class="cf">else</span> {
+      <span class="cf">if</span> (i <span class="op">%in%</span><span class="st"> </span><span class="kw">endpoints</span>(r_dat,span)){
+        H &lt;-<span class="st"> </span><span class="kw">carroll</span>(test_dat[<span class="dv">1</span><span class="op">:</span>(<span class="kw">NROW</span>(test_dat)<span class="op">-</span><span class="dv">1</span>),],FLG)
+        <span class="cf">if</span> (port <span class="op">==</span><span class="st"> &quot;nlgmv&quot;</span>){
+          result &lt;-<span class="st"> </span><span class="kw">nlgmv</span>(test_dat,H)
+        }<span class="cf">else</span> <span class="cf">if</span> (port <span class="op">==</span><span class="st"> &quot;risk parity&quot;</span>){
+          result &lt;-<span class="st"> </span><span class="kw">risk_parity</span>(test_dat,H)
+        }
+        
+      }
+      weight &lt;-<span class="st"> </span><span class="kw">rbind</span>(weight,<span class="kw">t</span>(result<span class="op">$</span>weight))
+      p_return &lt;-<span class="st"> </span><span class="kw">rbind</span>(p_return,test_dat[<span class="kw">NROW</span>(test_dat),]<span class="op">*</span>result<span class="op">$</span>weight)
+    }
+    <span class="cf">if</span> (i <span class="op">!=</span><span class="st"> </span><span class="kw">NROW</span>(r_dat)){
+      term &lt;-<span class="st"> </span><span class="kw">stri_c</span>(<span class="kw">index</span>(r_dat[i<span class="op">+</span><span class="dv">1</span>,])<span class="op">-</span>learning_term,<span class="st">&quot;::&quot;</span>,<span class="kw">index</span>(r_dat[i<span class="op">+</span><span class="dv">1</span>,])) 
+      test_dat &lt;-<span class="st"> </span>r_dat[term]
+    }
+  }
+  p_return<span class="op">$</span>portfolio &lt;-<span class="st"> </span><span class="kw">xts</span>(<span class="kw">apply</span>(p_return,<span class="dv">1</span>,sum),<span class="dt">order.by =</span> <span class="kw">index</span>(p_return))
+  weight.xts &lt;-<span class="st"> </span><span class="kw">xts</span>(weight,<span class="dt">order.by =</span> <span class="kw">index</span>(p_return))
+
+  result &lt;-<span class="st"> </span><span class="kw">list</span>(p_return,weight.xts)
+  <span class="kw">names</span>(result) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;return&quot;</span>,<span class="st">&quot;weight&quot;</span>)
+  <span class="kw">return</span>(result)
+}
+
+CCC &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;CCC&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+DCC &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;DCC&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+DECO &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;DECO&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+benchmark &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;benchmark&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+
+result &lt;-<span class="st"> </span><span class="kw">merge</span>(CCC<span class="op">$</span>return<span class="op">$</span>portfolio,DCC<span class="op">$</span>return<span class="op">$</span>portfolio,DECO<span class="op">$</span>return<span class="op">$</span>portfolio,benchmark<span class="op">$</span>return<span class="op">$</span>portfolio)
+<span class="kw">colnames</span>(result) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;CCC&quot;</span>,<span class="st">&quot;DCC&quot;</span>,<span class="st">&quot;DECO&quot;</span>,<span class="st">&quot;benchmark&quot;</span>)</code></pre>
+<p>計算結果をグラフにしてみます。</p>
+<pre class="sourceCode r"><code class="sourceCode r">PerformanceAnalytics<span class="op">::</span><span class="kw">charts.PerformanceSummary</span>(result,<span class="dt">main =</span> <span class="st">&quot;BACKTEST&quot;</span>)</code></pre>
+<p><img src="../../blog/post2_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>空売り制約を課したので、上で定義した最小分散ポートフォリオは使用していません。どうやらこれだけで解析的に解くのは難しいらしく、数値的に解くことにしています。リバランス期間を週次にしたので、自前のPCでは計算に時間がかかりましたが、結果が計算できました。</p>
+<p>リーマン以降はどうやらベンチマークである等ウェイトポートフォリオよりをアウトパフォームしているようです。特に、DECOはいい感じです。そもそもDECOとDCCはほぼ変わらないパフォーマンスであると思っていたのですが、どうやら自分の理解が足らないらしく、論文の読み返す必要があるようです。Equicorrelationの意味をもう一度考えてみたいと思います。それぞれの組入比率の推移は以下のようになりました。</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># plot allocation weighting</span>
+d_allocation &lt;-<span class="st"> </span><span class="cf">function</span>(ggweight,title){
+  <span class="co">#install.packages(&quot;tidyverse&quot;)</span>
+  <span class="kw">library</span>(tidyverse)
+  ggweight &lt;-<span class="st"> </span><span class="kw">gather</span>(ggweight,<span class="dt">key=</span>ASSET,<span class="dt">value=</span>weight,<span class="op">-</span>Date,<span class="op">-</span>method)
+  <span class="kw">ggplot</span>(ggweight, <span class="kw">aes</span>(<span class="dt">x=</span>Date, <span class="dt">y=</span>weight,<span class="dt">fill=</span>ASSET)) <span class="op">+</span>
+<span class="st">    </span><span class="kw">geom_area</span>(<span class="dt">colour=</span><span class="st">&quot;black&quot;</span>,<span class="dt">size=</span>.<span class="dv">1</span>) <span class="op">+</span>
+<span class="st">    </span><span class="kw">scale_y_continuous</span>(<span class="dt">limits =</span> <span class="kw">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)) <span class="op">+</span>
+<span class="st">    </span><span class="kw">labs</span>(<span class="dt">title=</span>title) <span class="op">+</span><span class="st"> </span><span class="kw">facet_grid</span>(method<span class="op">~</span>.)
+}
+
+gmv_weight &lt;-<span class="st"> </span><span class="kw">rbind</span>(<span class="kw">data.frame</span>(CCC<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;CCC&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(CCC<span class="op">$</span>weight)),<span class="kw">data.frame</span>(DCC<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;DCC&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(DCC<span class="op">$</span>weight)),<span class="kw">data.frame</span>(DECO<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;DECO&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(DECO<span class="op">$</span>weight)))
+
+<span class="co"># plot allocation weighting</span>
+<span class="kw">d_allocation</span>(gmv_weight,<span class="st">&quot;GMV Asset Allocation&quot;</span>)</code></pre>
+<p><img src="../../blog/post2_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>リーマンの際にTLT、つまり米国債への比率を増やしているようです。CCCとDCCはそれ以外の部分でも米国債への比率が高く、よく挙げられる最小分散ポートフォリオの問題点がここでも発生しているようです。一方、DECOがやはり個性的な組入比率の推移をしており、ここらを考えてももう一度論文を読み返してみる必要がありそうです。</p>
+<p>追記（2019/3/3）
+これまでは、最小分散ポートフォリオで分析をしていましたが、リスクパリティの結果も見たいなと言うことで、そのコードも書いてみました。</p>
+<pre class="sourceCode r"><code class="sourceCode r">risk_parity &lt;-<span class="st"> </span><span class="cf">function</span>(r_dat,r_cov){
+  fn &lt;-<span class="st"> </span><span class="cf">function</span>(weight, r_cov) {
+    N &lt;-<span class="st"> </span><span class="kw">NROW</span>(r_cov)
+    risks &lt;-<span class="st">  </span>weight <span class="op">*</span><span class="st"> </span>(r_cov <span class="op">%*%</span><span class="st"> </span>weight)
+    g &lt;-<span class="st"> </span><span class="kw">rep</span>(risks, <span class="dt">times =</span> N) <span class="op">-</span><span class="st"> </span><span class="kw">rep</span>(risks, <span class="dt">each =</span> N)
+  <span class="kw">return</span>(<span class="kw">sum</span>(g<span class="op">^</span><span class="dv">2</span>))
+  }
+  dfn &lt;-<span class="st"> </span><span class="cf">function</span>(weight,r_cov){
+    out &lt;-<span class="st"> </span>weight
+    <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">0</span><span class="op">:</span><span class="kw">length</span>(weight)) {
+      up &lt;-<span class="st"> </span>dn &lt;-<span class="st"> </span>weight
+      up[i] &lt;-<span class="st"> </span>up[i]<span class="op">+</span>.<span class="dv">0001</span>
+      dn[i] &lt;-<span class="st"> </span>dn[i]<span class="op">-</span>.<span class="dv">0001</span>
+      out[i] =<span class="st"> </span>(<span class="kw">fn</span>(up,r_cov) <span class="op">-</span><span class="st"> </span><span class="kw">fn</span>(dn,r_cov))<span class="op">/</span>.<span class="dv">0002</span>
+    }
+    <span class="kw">return</span>(out)
+  }
+  std &lt;-<span class="st"> </span><span class="kw">sqrt</span>(<span class="kw">diag</span>(r_cov)) 
+  x0 &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">/</span>std<span class="op">/</span><span class="kw">sum</span>(<span class="dv">1</span><span class="op">/</span>std)
+  res &lt;-<span class="st"> </span>nloptr<span class="op">::</span><span class="kw">nloptr</span>(<span class="dt">x0=</span>x0,
+                 <span class="dt">eval_f=</span>fn,
+                 <span class="dt">eval_grad_f=</span>dfn,
+                 <span class="dt">eval_g_eq=</span><span class="cf">function</span>(weight,r_cov) { <span class="kw">sum</span>(weight) <span class="op">-</span><span class="st"> </span><span class="dv">1</span> },
+                 <span class="dt">eval_jac_g_eq=</span><span class="cf">function</span>(weight,r_cov) { <span class="kw">rep</span>(<span class="dv">1</span>,<span class="kw">length</span>(std)) },
+                 <span class="dt">lb=</span><span class="kw">rep</span>(<span class="dv">0</span>,<span class="kw">length</span>(std)),<span class="dt">ub=</span><span class="kw">rep</span>(<span class="dv">1</span>,<span class="kw">length</span>(std)),
+                 <span class="dt">opts =</span> <span class="kw">list</span>(<span class="st">&quot;algorithm&quot;</span>=<span class="st">&quot;NLOPT_LD_SLSQP&quot;</span>,<span class="st">&quot;print_level&quot;</span> =<span class="st"> </span><span class="dv">0</span>,<span class="st">&quot;xtol_rel&quot;</span>=<span class="fl">1.0e-8</span>,<span class="st">&quot;maxeval&quot;</span> =<span class="st"> </span><span class="dv">1000</span>),
+                 <span class="dt">r_cov =</span> r_cov)
+  r_weight &lt;-<span class="st"> </span>res<span class="op">$</span>solution
+  <span class="kw">names</span>(r_weight) &lt;-<span class="st"> </span><span class="kw">colnames</span>(r_cov)
+  wr_dat &lt;-<span class="st"> </span>r_dat<span class="op">*</span>r_weight
+  portfolio &lt;-<span class="st"> </span><span class="kw">apply</span>(wr_dat,<span class="dv">1</span>,sum)
+  pr_dat &lt;-<span class="st"> </span><span class="kw">data.frame</span>(wr_dat,portfolio)
+  sd &lt;-<span class="st"> </span><span class="kw">sd</span>(portfolio)
+  result &lt;-<span class="st"> </span><span class="kw">list</span>(r_weight,pr_dat,sd)
+  <span class="kw">names</span>(result) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;weight&quot;</span>,<span class="st">&quot;return&quot;</span>,<span class="st">&quot;portfolio risk&quot;</span>)
+  <span class="kw">return</span>(result)
+  }
+
+CCC &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;CCC&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+DCC &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;DCC&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+DECO &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;DECO&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+benchmark &lt;-<span class="st"> </span><span class="kw">backtest</span>(hist.returns,<span class="st">&quot;benchmark&quot;</span>,<span class="st">&quot;2007-01-04&quot;</span>,<span class="st">&quot;months&quot;</span>,<span class="dv">365</span>,<span class="st">&quot;risk parity&quot;</span>)
+
+result &lt;-<span class="st"> </span><span class="kw">merge</span>(CCC<span class="op">$</span>return<span class="op">$</span>portfolio,DCC<span class="op">$</span>return<span class="op">$</span>portfolio,DECO<span class="op">$</span>return<span class="op">$</span>portfolio,benchmark<span class="op">$</span>return<span class="op">$</span>portfolio)
+<span class="kw">colnames</span>(result) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;CCC&quot;</span>,<span class="st">&quot;DCC&quot;</span>,<span class="st">&quot;DECO&quot;</span>,<span class="st">&quot;benchmark&quot;</span>)</code></pre>
+<p>結果はこんな感じ。</p>
+<pre class="sourceCode r"><code class="sourceCode r">PerformanceAnalytics<span class="op">::</span><span class="kw">charts.PerformanceSummary</span>(result, <span class="dt">main =</span> <span class="st">&quot;BACKTEST COMPARISON&quot;</span>)
+
+<span class="kw">library</span>(plotly)
+
+<span class="co"># plot allocation weighting</span>
+riskparity_weight &lt;-<span class="st"> </span><span class="kw">rbind</span>(<span class="kw">data.frame</span>(CCC<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;CCC&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(CCC<span class="op">$</span>weight)),<span class="kw">data.frame</span>(DCC<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;DCC&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(DCC<span class="op">$</span>weight)),<span class="kw">data.frame</span>(DECO<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;DECO&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(DECO<span class="op">$</span>weight)),<span class="kw">data.frame</span>(benchmark<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;benchmark&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(benchmark<span class="op">$</span>weight)))</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">PerformanceAnalytics<span class="op">::</span><span class="kw">charts.PerformanceSummary</span>(result, <span class="dt">main =</span> <span class="st">&quot;BACKTEST COMPARISON&quot;</span>)</code></pre>
+<p><img src="../../blog/post2_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+<pre class="sourceCode r"><code class="sourceCode r">riskparity_weight &lt;-<span class="st"> </span><span class="kw">rbind</span>(<span class="kw">data.frame</span>(CCC<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;CCC&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(CCC<span class="op">$</span>weight)),<span class="kw">data.frame</span>(DCC<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;DCC&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(DCC<span class="op">$</span>weight)),<span class="kw">data.frame</span>(DECO<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;DECO&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(DECO<span class="op">$</span>weight)),<span class="kw">data.frame</span>(benchmark<span class="op">$</span>weight,<span class="dt">method=</span><span class="st">&quot;benchmark&quot;</span>,<span class="dt">Date=</span><span class="kw">index</span>(benchmark<span class="op">$</span>weight)))
+
+<span class="co"># plot allocation weighting</span>
+<span class="kw">d_allocation</span>(riskparity_weight, <span class="st">&quot;Risk Parity Asset Allocation&quot;</span>)</code></pre>
+<p><img src="../../blog/post2_files/figure-html/unnamed-chunk-15-2.png" width="672" /></p>
+<p>どの手法もbenchmarkをアウトパーフォームできているという好ましい結果になりました。
+やはり、分散共分散行列の推計がうまくいっているようです。また、DECOのパフォーマンスがよいのは、相関行列に各資産ペアの相関係数の平均値を用いているため、他の手法よりもリスク資産の組み入れが多くなったからだと思われます。ウェイトは以下の通りです。</p>
+<p>とりあえず、今日はここまで。</p>
+</div>
+
+            </div>
+        </article>
+      </main>
+      <section id="site-sidebar">
+  <section id="recent-posts">
+    <header>
+      <h1>Recent posts</h1>
+    </header>
+    
+    <article class="mini-post">
+      <section>
+        
+
+      </section>
+      <header>
+        <h1><a href="../../blog/examples/">Markdown and Shortcodes</a></h1>
+        <time class="published" datetime="">January 2, 2006</time>
+      </header>
+    </article>
+    
+    <article class="mini-post">
+      <section>
+        
+<a href="../../blog/%E6%97%A5%E6%AC%A1gdp-%E3%82%AC%E3%82%A6%E3%82%B9%E5%9B%9E%E5%B8%B0%E3%81%AE%E5%AE%9F%E8%A3%85%E3%82%92%E3%82%84%E3%81%A3%E3%81%A6%E3%81%BF%E3%81%9F/" class="image featured">
+  <img src="../../img/2018/12/pic03.jpg" alt="">
+</a>
+
+
+      </section>
+      <header>
+        <h1><a href="../../blog/%E6%97%A5%E6%AC%A1gdp-%E3%82%AC%E3%82%A6%E3%82%B9%E5%9B%9E%E5%B8%B0%E3%81%AE%E5%AE%9F%E8%A3%85%E3%82%92%E3%82%84%E3%81%A3%E3%81%A6%E3%81%BF%E3%81%9F/">【日次GDP】ガウス回帰の実装をやってみた</a></h1>
+        <time class="published" datetime="">January 2, 2006</time>
+      </header>
+    </article>
+    
+    <article class="mini-post">
+      <section>
+        
+<a href="../../blog/creating-a-new-theme/" class="image featured">
+  <img src="../../img/2014/09/pic03.jpg" alt="Pic 3">
+</a>
+
+
+      </section>
+      <header>
+        <h1><a href="../../blog/creating-a-new-theme/">Creating a New Theme</a></h1>
+        <time class="published" datetime="">January 2, 2006</time>
+      </header>
+    </article>
+    
+    <article class="mini-post">
+      <section>
+        
+<a href="../../blog/goisforlovers/" class="image featured">
+  <img src="../../img/2014/04/pic02.jpg" alt="Pic 2">
+</a>
+
+
+      </section>
+      <header>
+        <h1><a href="../../blog/goisforlovers/">(Hu)go Template Primer</a></h1>
+        <time class="published" datetime="">January 2, 2006</time>
+      </header>
+    </article>
+    
+    <article class="mini-post">
+      <section>
+        
+<a href="../../blog/hugoisforlovers/" class="image featured">
+  <img src="../../img/2014/04/pic01.jpg" alt="Pic 1">
+</a>
+
+
+      </section>
+      <header>
+        <h1><a href="../../blog/hugoisforlovers/">Getting Started with Hugo</a></h1>
+        <time class="published" datetime="">January 2, 2006</time>
+      </header>
+    </article>
+    
+    
+      <a href="../../blog/" class="button">See more</a>
+    
+  </section>
+
+  
+    
+      <section id="categories">
+        <header>
+          <h1><a href="../../categories">Categories</a></h1>
+        </header>
+        <ul>
+          
+            
+          
+          
+          <li>
+            
+              <a href="../../categories/%E6%97%A5%E6%AC%A1gdp/">日次gdp<span class="count">5</span></a>
+            
+          
+          <li>
+            
+              <a href="../../categories/hugo/">hugo<span class="count">3</span></a>
+            
+          
+          <li>
+            
+              <a href="../../categories/go/">go<span class="count">1</span></a>
+            
+          
+          <li>
+            
+              <a href="../../categories/jekyll/">jekyll<span class="count">1</span></a>
+            
+          
+          <li>
+            
+              <a href="../../categories/markdown/">markdown<span class="count">1</span></a>
+            
+          
+          <li>
+            
+              <a href="../../categories/r/">r<span class="count">1</span></a>
+            
+          
+          <li>
+            
+              <a href="../../categories/%E4%BB%95%E4%BA%8B%E9%96%A2%E9%80%A3/">仕事関連<span class="count">1</span></a>
+            
+          
+          </li>
+        </ul>
+      </section>
+    
+  
+
+  <section id="mini-bio">
+    <header>
+      <h1>About</h1>
+    </header>
+    <p>test</p>
+    <footer>
+      <a href="../../about" class="button">Learn More</a>
+    </footer>
+  </section>
+</section>
+
+      <footer id="site-footer">
+  
+      <ul class="social-icons">
+        
+
+        <li><a href="//github.com/pacollins/hugo-future-imperfect-slim" target="_blank" rel="noopener" title="GitHub" class="fab fa-github"></a></li>
+
+
+
+
+
+
+<li><a href="//flickr.com/photos/example" target="_blank" rel="noopener" title="Flickr" class="fab fa-flickr"></a></li>
+
+
+
+
+<li><a href="//linkedin.com/in/example" target="_blank" rel="noopener" title="LinkedIn" class="fab fa-linkedin"></a></li>
+<li><a href="//linkedin.com/company/examplebusiness" target="_blank" rel="noopener" title="LinkedIn Company" class="fab fa-linkedin"></a></li>
+
+
+
+<li><a href="//facebook.com/example" target="_blank" rel="noopener" title="Facebook" class="fab fa-facebook"></a></li>
+<li><a href="//reddit.com/user/example" target="_blank" rel="noopener" title="Reddit" class="fab fa-reddit"></a></li>
+
+
+
+
+
+
+
+<li><a href="//instagram.com/example" target="_blank" rel="noopener" title="Instagram" class="fab fa-instagram"></a></li>
+
+<li><a href="//twitter.com/example" target="_blank" rel="noopener" title="Twitter" class="fab fa-twitter"></a></li>
+
+
+<li><a href="//pinterest.com/example" target="_blank" rel="noopener" title="Pinterest" class="fab fa-pinterest-p"></a></li>
+<li><a href="//telegram.me/example" target="_blank" rel="noopener" title="telegram" class="fab fa-telegram"></a></li>
+
+
+
+<li><a href="//researchgate.net/profile/example" target="_blank" rel="noopener" title="Research Gate"><i class="ai ai-researchgate"></i></a></li>
+<li><a href="mailto:example" target="_blank" title="Email" class="far fa-envelope"></a></li>
+
+      </ul>
+  
+  <p class="copyright">
+    
+      &copy; 2019
+      
+        東京の投資顧問会社で働く社会人が研究に没頭するブログ
+      
+    .
+    Powered by <a href="//gohugo.io" target="_blank" rel="noopener">Hugo</a>
+  </p>
+</footer>
+<a id="back-to-top" href="#" class="fas fa-arrow-up fa-2x"></a>
+
+      
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.6/highlight.min.js"></script>
+  
+  <script>hljs.configure({languages: []}); hljs.initHighlightingOnLoad();</script>
+
+
+  
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/skel/3.0.1/skel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.3.5/jquery.fancybox.min.js"></script>
+  <script src=../../js/util.js></script>
+  <script src=../../js/main.js></script>
+  <script src=../../js/add-on.js></script>
+  
+
+<script>hljs.initHighlightingOnLoad();</script>
+
+
+    </div>
+  </body>
+</html>
